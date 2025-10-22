@@ -68,16 +68,17 @@ function updateUI() {
       <div class="lead-header">
         <div>
           <div class="lead-name">${escapeHtml(lead.job_title) || 'No Job Title'}</div>
-          <div class="lead-role">${escapeHtml(lead.company) || 'No Company'}</div>
+          <div class="lead-role">${escapeHtml(lead.contact_details?.contact_person || lead.contact_details?.name || lead.contact_details?.company || lead.company || 'No Company')}</div>
+          <div class="lead-salary">${escapeHtml(lead.salary || 'TBD')}</div>
         </div>
         <div class="lead-actions">
-          <button class="icon-btn" onclick="copyLead(${index})" title="Copy job info">
+          <button class="icon-btn copy-btn" data-index="${index}" title="Copy job info">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
           </button>
-          <button class="icon-btn" onclick="deleteLead(${index})" title="Delete job">
+          <button class="icon-btn delete-btn" data-index="${index}" title="Delete job">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -126,11 +127,30 @@ function updateUI() {
         ` : ''}
       </div>
       <div class="lead-meta">
-        <span class="lead-url" title="${escapeHtml(lead.url)}">${escapeHtml(getHostname(lead.url))}</span>
+        <a href="${escapeHtml(lead.url)}" 
+           class="lead-url" 
+           title="${escapeHtml(lead.url)}"
+           target="_blank"
+           rel="noopener noreferrer">${escapeHtml(getHostname(lead.url))}</a>
         <span class="lead-date">${formatDate(lead.timestamp)}</span>
       </div>
     </div>
   `).join('');
+
+  // Add event listeners after updating innerHTML
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const index = parseInt(e.currentTarget.dataset.index);
+      await deleteLead(index);
+    });
+  });
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt(e.currentTarget.dataset.index);
+      copyLead(index);
+    });
+  });
 }
 
 // Export to clipboard
@@ -162,40 +182,51 @@ URL: ${lead.url || 'N/A'}
 
 // Export to CSV
 function exportToCSV() {
-  if (leads.length === 0) {
-    showNotification('No jobs to export', 'error');
-    return;
-  }
-
   try {
-    // Create CSV content
-    const headers = ['Job Title', 'Company', 'Job Summary', 'Contact Name', 'Contact Email', 'Contact Phone', 'URL', 'Date'];
-    const rows = leads.map(lead => [
-      lead.job_title || '',
-      lead.company || '',
-      lead.job_description_summary || '',
-      lead.contactName || '',
-      lead.contactEmail || '',
-      lead.contactPhone || '',
-      lead.url || '',
-      new Date(lead.timestamp).toISOString()
-    ]);
+    // Convert leads data to CSV format
+    const csvContent = leads.map(lead => {
+      // Define the fields you want to export
+      const rowData = [
+        lead.job_title || '',
+        lead.company?.name || lead.company || '',
+        lead.job_description_summary || '',
+        lead.contact_details?.contact_person || '',
+        lead.contact_details?.email || '',
+        lead.contact_details?.phone || '',
+        lead.url || '',
+        formatDate(lead.timestamp) || ''
+      ];
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
+      // Ensure all values are strings and properly escaped
+      return rowData.map(cell => {
+        const stringValue = String(cell || ''); // Convert to string, use empty string if null/undefined
+        return `"${stringValue.replace(/"/g, '""')}"`;  // Escape quotes and wrap in quotes
+      }).join(',');
+    }).join('\n');
 
-    // Create download
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `leads_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Add headers
+    const headers = [
+      'Job Title',
+      'Company',
+      'Summary',
+      'Contact Person',
+      'Email',
+      'Phone',
+      'URL',
+      'Date'
+    ].map(header => `"${header}"`).join(',');
 
-    showNotification(`Exported ${leads.length} leads to CSV`, 'success');
+    // Combine headers and content
+    const fullCsv = `${headers}\n${csvContent}`;
+
+    // Create and trigger download
+    const blob = new Blob([fullCsv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `job_leads_${formatDate(Date.now())}.csv`;
+    link.click();
+
+    showNotification('CSV exported successfully', 'success');
   } catch (error) {
     console.error('Error exporting CSV:', error);
     showNotification('Failed to export CSV', 'error');
@@ -247,13 +278,15 @@ URL: ${lead.url || 'N/A'}`;
 // Delete single lead
 async function deleteLead(index) {
   if (!confirm('Delete this job?')) return;
-
-  leads.splice(index, 1);
-
+  
   try {
-    await chrome.storage.local.set({ leads });
-    updateUI();
-    showNotification('Job deleted', 'success');
+    await chrome.runtime.sendMessage({
+      action: 'deleteLead',
+      index: index
+    });
+    
+    await loadLeads();
+    showNotification('Job deleted successfully', 'success');
   } catch (error) {
     console.error('Error deleting lead:', error);
     showNotification('Failed to delete job', 'error');

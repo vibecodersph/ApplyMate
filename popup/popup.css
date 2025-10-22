@@ -213,12 +213,13 @@ h1 {
 
 .info-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;  /* Changed from center to flex-start */
   gap: 8px;
   font-size: 13px;
 }
 
 .info-row svg {
+  margin-top: 2px;  /* Added to align icon with text */
   width: 14px;
   height: 14px;
   color: #999;
@@ -228,11 +229,17 @@ h1 {
 .info-label {
   color: #666;
   min-width: 70px;
+  align-self: flex-start;
+  padding-top: 2px;
 }
 
 .info-value {
-  color: #333;
-  word-break: break-all;
+  text-align: left;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
 }
 
 .lead-meta {
@@ -250,6 +257,13 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #0366d6;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lead-url:hover {
+  text-decoration: underline;
 }
 
 .notification {
@@ -278,4 +292,18 @@ h1 {
 
 .notification.error {
   border-left: 4px solid #ef4444;
+}
+
+.lead-salary {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lead-salary::before {
+  content: '💰';
+  font-size: 0.9em;
 }

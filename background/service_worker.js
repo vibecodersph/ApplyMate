@@ -13,28 +13,35 @@ async function extractLeadWithAI(pageContent, selectedText) {
     // Create AI session directly (capabilities check is optional)
     // The Mail-Bot reference doesn't check capabilities, just creates the session
     const session = await LanguageModel.create({
-      systemPrompt: `You are a job application information extraction assistant. Extract structured job and contact information from web pages.
-Your task is to identify and extract:
-- Job Title (the specific job title or position being advertised)
-- Job Description (detailed description of the role, responsibilities, requirements, etc.)
-- Job Description Summary (a concise 2-3 sentence summary of the key points)
-- Contact Name (full name of the recruiter, HR contact, or hiring manager if available)
-- Contact Email (email address for applications or inquiries)
-- Contact Phone (phone number if available)
-- Company (company or organization name)
+      systemPrompt: `You are a job information extraction assistant. Extract information in this exact format:
 
-Return ONLY a valid JSON object in this exact format:
 {
-  "job_title": "extracted job title or null",
-  "job_description": "extracted full job description or null",
-  "job_description_summary": "concise summary of job description or null",
-  "contactName": "extracted contact name or null",
-  "contactEmail": "extracted contact email or null",
-  "contactPhone": "extracted contact phone or null",
-  "company": "extracted company name or null"
+  "job_title": "exact position title",
+  "job_description": "complete job description text",
+  "job_description_summary": "brief 60-char summary of role and key requirements",
+  "contact_details": {
+    "contact_person": "full name of recruiter/contact",
+    "email": "contact email address",
+    "phone": "contact phone number"
+  },
+  "company": {
+    "name": "company name",
+    "member_since": "platform join date if available",
+    "total_job_posts": "number of posts if available"
+  },
+  "salary": "salary range or rate if specified",
+  "hours_per_week": "work hours if specified"
 }
 
-If a field cannot be found, use null. Do not include any explanation, just the JSON object. All fields must be plain text strings (not objects, arrays, or nested structures). Use the provided variable names, do not change.`
+RULES:
+1. Keep exact field names as shown
+2. Use null for any missing information
+3. Remove fields entirely if both parent and child objects are null
+4. Maintain nested structure for contact_details and company
+5. Keep job_description_summary under 60 characters
+6. Extract only factual information, no interpretations
+
+Return only the JSON object, exactly as specified above.`
     });
 
     // Build extraction prompt
@@ -173,6 +180,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
     });
 
+    return true; // Async response
+  }
+
+  if (message.action === 'deleteLead') {
+    chrome.storage.local.get(['leads'], (result) => {
+      const leads = result.leads || [];
+      leads.splice(message.index, 1);
+      
+      chrome.storage.local.set({ leads }, () => {
+        sendResponse({
+          success: true
+        });
+      });
+    });
     return true; // Async response
   }
 
