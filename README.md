@@ -1,41 +1,26 @@
-# Lead Info Extractor
+# ApplyMate
 
-A Chrome extension that extracts lead information (Name, Role, Company, Email) from LinkedIn profiles and web pages using Chrome's built-in AI (Gemini Nano).
+A Chrome extension that extracts lead and job information (Name, Role, Company, Email, Job details) from LinkedIn profiles and web pages using Chrome's built-in AI (Gemini Nano / LanguageModel).
 
 ## Features
 
-- **AI-Powered Extraction**: Uses Chrome's on-device Gemini Nano AI for intelligent lead information extraction
-- **Privacy-First**: All processing happens locally on your device - no external APIs or data transmission
-- **One-Click Extraction**: Floating button on every page for quick lead capture
-- **Smart Parsing**: Extracts Name, Role, Company, and Email from page content
-- **Export Options**: Copy to clipboard or export to CSV
-- **Lead Management**: View, manage, and organize extracted leads in the popup interface
+- AI-powered on-device extraction of job & contact details
+- Privacy-first: processing happens locally, no external APIs
+- One-click extraction via floating button or selection
+- Exports: copy to clipboard, export CSV
+- Lead management in popup: view, copy, delete, export
 
 ## Prerequisites
 
 ### Enable Chrome AI (Gemini Nano)
 
-Before using this extension, you need to enable Chrome's built-in AI:
-
-1. **Use Chrome Canary or Dev** (version 127+)
-   - Download from: https://www.google.com/chrome/canary/
-
-2. **Enable Required Flags**
-
-   Navigate to `chrome://flags` and enable these flags:
-   - `#optimization-guide-on-device-model` → **Enabled BypassPerfRequirement**
-   - `#prompt-api-for-gemini-nano` → **Enabled**
-
-3. **Download AI Model**
-
-   - Go to `chrome://components`
-   - Find "Optimization Guide On Device Model"
-   - Click "Check for update" to download Gemini Nano
-   - Wait for status to show "Ready" (may take several minutes)
-
-4. **Verify AI is Ready**
-
-   Open DevTools Console and run:
+1. Use Chrome Canary or Dev (version 127+)
+2. Enable flags at `chrome://flags`:
+   - `#optimization-guide-on-device-model` → Enabled
+   - `#prompt-api-for-gemini-nano` → Enabled
+3. Download model at `chrome://components`:
+   - Find "Optimization Guide On Device Model" → Check for update → wait until "Ready"
+4. Verify AI ready:
    ```javascript
    (await ai.languageModel.capabilities()).available
    ```
@@ -43,157 +28,85 @@ Before using this extension, you need to enable Chrome's built-in AI:
 
 ## Installation
 
-1. **Clone or Download** this repository
+1. Clone or download:
    ```bash
    git clone https://github.com/yourusername/LeadExtract.git
    cd LeadExtract
    ```
-
-2. **Generate Icons** (optional)
-   - Open `assets/create-icons.html` in a browser
-   - Download all generated icon files to the `assets/` folder
-   - Or use your own icons (16x16, 32x32, 48x48, 128x128)
-
-3. **Load Extension in Chrome**
-   - Open Chrome and go to `chrome://extensions`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the `LeadExtract` folder
-
-4. **Pin Extension** (recommended)
-   - Click the puzzle icon in Chrome toolbar
-   - Find "Lead Info Extractor"
-   - Click the pin icon to keep it visible
+2. (Optional) Generate icons via `assets/create-icons.html`
+3. Load unpacked extension:
+   - Go to `chrome://extensions`, enable Developer mode, click "Load unpacked", select this folder
+4. Pin extension (optional) via Chrome toolbar puzzle icon
 
 ## Usage
 
-### Extract Leads from Any Page
+### Extract Leads
+1. Open any webpage (LinkedIn, company site, job board)
+2. Click the floating "Extract Lead" button or highlight text then click
+3. Wait for AI extraction (2–10s)
+4. Open extension popup to view results
 
-1. **Navigate** to any webpage (LinkedIn profile, company website, etc.)
-
-2. **Click** the floating "Extract Lead" button (bottom right of page)
-   - Or highlight specific text first, then click the button
-
-3. **Wait** for AI extraction (usually 2-5 seconds)
-
-4. **View Results** by clicking the extension icon in toolbar
-
-### Managing Leads
-
-**View All Leads**
-- Click the extension icon to open popup
-- See all extracted leads with details
-
-**Copy Individual Lead**
-- Click the copy icon on any lead card
-- Lead info is copied to clipboard
-
-**Copy All Leads**
-- Click "Copy All" button in popup
-- All leads copied in text format
-
-**Export to CSV**
-- Click "Export CSV" button
-- Download spreadsheet with all leads
-
-**Clear All Leads**
-- Click "Clear All" to delete all saved leads
-- Confirmation required
+### Manage Leads
+- Copy individual lead to clipboard
+- Copy all leads
+- Export CSV
+- Delete individual leads or clear all (confirmation required)
 
 ## How It Works
 
-1. **Content Script** (`content/content.js`)
-   - Injects floating "Extract Lead" button on all pages
-   - Captures page content and selected text
-   - Sends data to background script
+- content/content.js — injects floating button, captures page/selection, sends to background
+- background/service_worker.js — runs AI prompt, parses JSON response, stores leads in chrome.storage.local
+- popup/ — UI to view/manage leads (popup.html, popup.css, popup.js)
 
-2. **Background Service Worker** (`background/service_worker.js`)
-   - Initializes Chrome AI (Gemini Nano) session
-   - Sends extraction prompt to AI model
-   - Parses AI response into structured JSON
-   - Stores leads in Chrome storage
+## Data Format
 
-3. **Popup UI** (`popup/`)
-   - Displays all extracted leads
-   - Provides export and management functions
-   - Real-time updates when new leads are added
+The AI returns structured JSON used by the UI. Typical fields:
+- job_title
+- job_description
+- job_description_summary (short concise summary)
+- contact_details: { contact_person, email, phone } or contacts array
+- company: { name, member_since, total_job_posts }
+- salary
+- hours_per_week
+- url, timestamp
+
+Rules:
+- Return null for missing fields
+- Keep summary short and concise for popup display
+
+## Troubleshooting
+
+- CSP inline handler error: remove inline onclicks; bind event listeners in popup JS
+- CSV export error (cell.replace is not a function): ensure exported values are strings
+- "refusing to merge unrelated histories": consider `git pull --allow-unrelated-histories` only after backup
 
 ## Project Structure
 
 ```
 LeadExtract/
-├── manifest.json           # Extension configuration
+├── manifest.json
 ├── background/
-│   └── service_worker.js   # AI extraction logic
+│   └── service_worker.js
 ├── content/
-│   ├── content.js          # Page interaction script
-│   └── styles.css          # Floating button styles
+│   ├── content.js
+│   └── styles.css
 ├── popup/
-│   ├── popup.html          # Extension popup UI
-│   ├── popup.css           # Popup styles
-│   └── popup.js            # Popup functionality
+│   ├── popup.html
+│   ├── popup.css
+│   └── popup.js
 ├── assets/
-│   ├── create-icons.html   # Icon generator
-│   └── icon*.png           # Extension icons
+│   └── create-icons.html
 └── README.md
 ```
 
-## Best Practices
-
-- **LinkedIn**: Works great on profile pages - extracts name, title, company
-- **Company Websites**: Best results on "About" or "Team" pages
-- **Contact Pages**: Can extract email addresses when visible
-- **Highlight Text**: For better accuracy, highlight relevant text before extracting
-- **Review Results**: AI extraction may not be perfect - always verify important information
-
-## Troubleshooting
-
-**"Chrome AI is not available" Error**
-- Ensure you're using Chrome Canary/Dev 127+
-- Check that flags are enabled at `chrome://flags`
-- Verify model is downloaded at `chrome://components`
-
-**Extraction Not Working**
-- Open DevTools Console (F12) and check for errors
-- Verify page content is accessible (some sites may block content scripts)
-- Try highlighting specific text and extracting again
-
-**Poor Extraction Quality**
-- AI works best with clearly formatted content
-- Try highlighting just the relevant section
-- Some pages may have too much noise/ads
-
-**Extension Not Loading**
-- Check `chrome://extensions` for error messages
-- Ensure all files are in correct directories
-- Try removing and reloading the extension
-
-## Privacy & Security
-
-- ✅ All AI processing happens **on-device** using Gemini Nano
-- ✅ **No external API calls** or data transmission
-- ✅ Leads stored locally in Chrome storage only
-- ✅ No telemetry or tracking
-- ✅ Open source - audit the code yourself
-
-## References
-
-This extension was built with reference to:
-- [Mail-Bot](https://github.com/vibecodersph/Mail-Bot) - Chrome AI implementation patterns
-- [Chrome Built-in AI](https://developer.chrome.com/docs/ai/built-in) - Official documentation
-
 ## Contributing
 
-Contributions welcome! Please open an issue or PR for:
-- Bug fixes
-- Feature enhancements
-- Documentation improvements
-- Better extraction prompts
+Fork, create a branch, open a PR to `https://github.com/vibecodersph/LeadExtract.git`. For destructive upstream changes, ensure you have permission and backups.
 
 ## License
 
-MIT License - feel free to use and modify for your projects.
+MIT (add LICENSE file as needed)
 
 ## Credits
 
-Built for VAs and professionals who need efficient lead extraction tools.
+Built for VAs and professionals to streamline lead/job info extraction.
